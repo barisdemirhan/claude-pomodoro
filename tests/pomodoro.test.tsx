@@ -6,8 +6,17 @@ const MINUTE = 60_000
 // Noon on 2 October 2026 where the test runs, far from either end of the day.
 const NOON = new Date(2026, 9, 2, 12).getTime()
 const SESSION = { cwd: '/', surface: 'terminal', isInteractive: true } as const
-const FOOTER = {
+// The hint line under the terminal's prompt, and the mode labels the desktop
+// draws beside its own.
+const HINT = {
   plugin: 'pomodoro',
+  surface: 'terminal',
+  component: 'PromptHint',
+  props: { isDraft: false, isWorking: false, hint: '? for shortcuts' },
+} as const
+const MODES = {
+  plugin: 'pomodoro',
+  surface: 'desktop',
   component: 'SessionMode',
   props: { modes: [] },
 } as const
@@ -37,8 +46,8 @@ const said = (args: string) =>
 
 /**
  * The engine beneath the mod: its clock, the store every session of the
- * plugin shares, the footer's labels drawn as one line, and what the mod
- * asked it to show and to play.
+ * plugin shares, the hint line's tail and the mode labels drawn as text, and
+ * what the mod asked it to show and to play.
  */
 const world = (on: On, entries: Readonly<Record<string, unknown>> = {}) => {
   const clock = mock.clock(on, { now: NOON })
@@ -67,6 +76,11 @@ const world = (on: On, entries: Readonly<Record<string, unknown>> = {}) => {
   on('turn.start', (_$, e) => ({ turnId: e.turnId }))
   on('turn.complete', (_$, e) => ({ text: e.answer }))
   on('classic.Notification', () => ({}))
+  on('ui.render', { component: 'PromptHint' }, ($, e) => {
+    const { Text } = $.ui.resolve(e)
+
+    return <Text>{e.props.tail ?? ''}</Text>
+  })
   on('ui.render', { component: 'SessionMode' }, ($, e) => {
     const { Text } = $.ui.resolve(e)
 
@@ -76,9 +90,9 @@ const world = (on: On, entries: Readonly<Record<string, unknown>> = {}) => {
   return { clock, store, toasts, clips }
 }
 
-/** The footer's line as the terminal draws it now. */
+/** What the mod adds to the terminal's hint line now. */
 const footer = async ($: Engine): Promise<string> => {
-  const ui = await $.ui.mount({ ...FOOTER, surface: 'terminal' })
+  const ui = await $.ui.mount(HINT)
   const text = (await ui.find({ type: 'Text' }))?.text ?? ''
   await ui.unmount()
 
@@ -88,16 +102,30 @@ const footer = async ($: Engine): Promise<string> => {
 const run = async ($: Engine, args: string): Promise<string> =>
   (await $.command.run(said(args))).text ?? ''
 
-test('the footer shows the round counting down on the terminal and the desktop', async ($, on) => {
+test('the round counts down on the terminal\'s hint line and among the desktop\'s mode labels', async ($, on) => {
   const { clock } = world(on)
   await $.session.start(SESSION)
   await run($, 'start')
+  expect(await footer($)).toBe('🍅 25:00 · 1/4')
 
-  for (const surface of ['terminal', 'desktop'] as const) {
-    const ui = await $.ui.mount({ ...FOOTER, surface })
-    expect((await ui.find({ type: 'Text' }))?.text).toBe('🍅 25:00 · 1/4')
-    await ui.unmount()
-  }
+  const desktop = await $.ui.mount(MODES)
+  expect((await desktop.find({ type: 'Text' }))?.text).toBe('🍅 25:00 · 1/4')
+  await desktop.unmount()
+
+  // The terminal has the timer on its hint line, so not on a row over it too.
+  const row = await $.ui.mount({ ...MODES, surface: 'terminal' })
+  expect((await row.find({ type: 'Text' }))?.text).toBe('')
+  await row.unmount()
+
+  // What another mod put on the hint line stays, the timer after it.
+  const shared = await $.ui.mount({
+    ...HINT,
+    props: { ...HINT.props, tail: '🦖 HI 00255' },
+  })
+  expect((await shared.find({ type: 'Text' }))?.text).toBe(
+    '🦖 HI 00255 · 🍅 25:00 · 1/4',
+  )
+  await shared.unmount()
 
   await clock.advance(MINUTE + 1000)
   expect(await footer($)).toBe('🍅 23:59 · 1/4')

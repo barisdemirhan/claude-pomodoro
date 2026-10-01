@@ -74,7 +74,7 @@ const breakText = (
 const focusText = (timer: Timer, plan: Plan): string =>
   `Break over · focus ${timer.round + 1}/${plan.rounds} is on`
 
-/** Draws the footer's label again, if the timer reads otherwise by now. */
+/** Draws the timer's label again, if the timer reads otherwise by now. */
 const shown = async (
   $: EngineInterface,
   timer: Timer,
@@ -308,13 +308,28 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  // The timer among the mode labels at the right of the prompt footer: the
-  // row over the hint line, which the footer keeps whether a label is there
-  // or not.
+  // The timer at the end of the hint line under the prompt, where it takes no
+  // row of its own. The hint's text is the engine's to draw: this only adds
+  // to its tail, after what another mod put there.
+  on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
+    const text = await read($, label)
+
+    if (text === '' || e.surface !== 'terminal') {
+      return next(e)
+    }
+
+    const before = e.props.tail ?? ''
+    const tail = before === '' ? text : `${before} · ${text}`
+
+    return next({ ...e, props: { ...e.props, tail } })
+  })
+
+  // Only the terminal draws a hint's tail: elsewhere the timer goes among the
+  // mode labels beside the hint line.
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     const text = await read($, label)
 
-    if (text === '') {
+    if (text === '' || e.surface === 'terminal') {
       return next(e)
     }
 

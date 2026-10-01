@@ -1,7 +1,7 @@
 {
   "name": "pomodoro",
-  "version": "0.1.0",
-  "description": "A pomodoro timer in the prompt footer: /pomodoro start, and the break toast lands while Claude works",
+  "version": "0.1.1",
+  "description": "A pomodoro timer on the prompt's hint line: /pomodoro start, and the break toast lands while Claude works",
   "author": {
     "name": "Barış Demirhan",
     "url": "https://github.com/barisdemirhan"

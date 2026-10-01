@@ -276,7 +276,7 @@ const spanText = (ms: number): string => {
 const roundText = (timer: Timer, plan: Plan): string =>
   `${timer.round + 1}/${plan.rounds}`
 
-/** The timer as the prompt footer shows it: empty while no pomodoro is on. */
+/** The timer as the hint line shows it: empty while no pomodoro is on. */
 export const labelOf = (timer: Timer, now: number, plan: Plan): string => {
   if (timer.phase === 'idle') {
     return ''
