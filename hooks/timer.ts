@@ -55,7 +55,8 @@ const toCount = (value: unknown): number =>
     ? Math.floor(value)
     : 0
 
-const field = (value: object, key: string): unknown => Reflect.get(value, key)
+const field = (value: object, key: string): unknown =>
+  Object.entries(value).find(([name]) => name === key)?.[1]
 
 const toMs = (value: unknown, fallback: number): number =>
   typeof value === 'number' && Number.isFinite(value) && value > 0
