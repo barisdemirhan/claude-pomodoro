@@ -1,0 +1,38 @@
+{
+  "name": "pomodoro",
+  "version": "0.1.0",
+  "description": "A pomodoro timer in the prompt footer: /pomodoro start, and the break toast lands while Claude works",
+  "author": {
+    "name": "Barış Demirhan",
+    "url": "https://github.com/barisdemirhan"
+  },
+  "repository": "https://github.com/barisdemirhan/claude-pomodoro",
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "focusMinutes": {
+      "type": "number",
+      "title": "Focus minutes",
+      "description": "How long a focus round runs",
+      "default": 25
+    },
+    "breakMinutes": {
+      "type": "number",
+      "title": "Break minutes",
+      "description": "How long the break after a focus round runs",
+      "default": 5
+    },
+    "longBreakMinutes": {
+      "type": "number",
+      "title": "Long break minutes",
+      "description": "How long the break after the last round of a set runs",
+      "default": 15
+    },
+    "rounds": {
+      "type": "number",
+      "title": "Rounds",
+      "description": "How many focus rounds make a set, the long break after its last",
+      "default": 4
+    }
+  }
+}

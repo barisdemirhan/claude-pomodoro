@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-pomodoro",
+  "description": "A pomodoro timer for Claude Code whose break lands while Claude works",
+  "owner": {
+    "name": "Barış Demirhan"
+  },
+  "plugins": [
+    {
+      "name": "pomodoro",
+      "description": "A pomodoro timer in the prompt footer: /pomodoro start, and the break toast lands while Claude works",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}
