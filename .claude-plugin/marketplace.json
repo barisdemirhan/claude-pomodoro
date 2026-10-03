@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "pomodoro",
-      "description": "A pomodoro timer on the prompt's hint line: /pomodoro start, and the break toast lands while Claude works",
+      "description": "A pomodoro timer on the prompt's hint line whose break lands while Claude works, with buttons beside it, a history and a report: /pomodoro start",
       "source": "./",
       "category": "productivity"
     }

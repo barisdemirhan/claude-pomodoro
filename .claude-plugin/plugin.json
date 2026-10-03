@@ -1,12 +1,15 @@
 {
   "name": "pomodoro",
-  "version": "0.1.1",
-  "description": "A pomodoro timer on the prompt's hint line: /pomodoro start, and the break toast lands while Claude works",
+  "version": "0.2.0",
+  "description": "A pomodoro timer on the prompt's hint line whose break lands while Claude works, with buttons beside it, a history and a report: /pomodoro start",
   "author": {
     "name": "Barış Demirhan",
     "url": "https://github.com/barisdemirhan"
   },
   "repository": "https://github.com/barisdemirhan/claude-pomodoro",
+  "privacyPolicyUrl": "https://github.com/barisdemirhan/claude-pomodoro/blob/main/PRIVACY.md",
+  "supportUrl": "https://github.com/barisdemirhan/claude-pomodoro/issues",
+  "documentationUrl": "https://github.com/barisdemirhan/claude-pomodoro#readme",
   "license": "MIT",
   "types": "./types/index.d.ts",
   "userConfig": {
@@ -33,6 +36,84 @@
       "title": "Rounds",
       "description": "How many focus rounds make a set, the long break after its last",
       "default": 4
+    },
+    "focusStart": {
+      "type": "string",
+      "title": "Focus starts",
+      "description": "After a break: prompt waits for your next prompt, auto starts the round at once",
+      "options": [
+        "prompt",
+        "auto"
+      ],
+      "default": "prompt"
+    },
+    "breakStart": {
+      "type": "string",
+      "title": "Break starts",
+      "description": "After a focus round: claude waits up to five minutes for Claude to start working, auto starts the break at once",
+      "options": [
+        "claude",
+        "auto"
+      ],
+      "default": "claude"
+    },
+    "dailyGoal": {
+      "type": "number",
+      "title": "Daily goal",
+      "description": "Focus rounds a day you aim for; 0 for none",
+      "default": 0
+    },
+    "hintStyle": {
+      "type": "string",
+      "title": "Hint style",
+      "description": "How the hint line shows the set: full (2/4), dots (●●○○) or minimal",
+      "options": [
+        "full",
+        "dots",
+        "minimal"
+      ],
+      "default": "full"
+    },
+    "controls": {
+      "type": "string",
+      "title": "Control row",
+      "description": "Buttons under the hint line where there is a pointer (the fullscreen terminal, the desktop app): always, only while a pomodoro is on, or off",
+      "options": [
+        "always",
+        "running",
+        "off"
+      ],
+      "default": "always"
+    },
+    "volume": {
+      "type": "number",
+      "title": "Volume",
+      "description": "How loud the sounds play, 0 to 100",
+      "default": 50
+    },
+    "voice": {
+      "type": "boolean",
+      "title": "Spoken announcements",
+      "description": "Says each phase change aloud as well, with the system voice",
+      "default": false
+    },
+    "openPomodoro": {
+      "type": "boolean",
+      "title": "Open Pomodoro files",
+      "description": "Keeps ~/.pomodoro/current and ~/.pomodoro/history as openpomodoro-cli does, and picks up a pomodoro it starts",
+      "default": false
+    },
+    "scriptHooks": {
+      "type": "boolean",
+      "title": "Hook scripts",
+      "description": "Runs ~/.pomodoro/hooks/start, stop and break as phases change, as openpomodoro-cli does",
+      "default": false
+    },
+    "modelTools": {
+      "type": "boolean",
+      "title": "Tools for Claude",
+      "description": "Lets Claude read your pomodoro stats and act on the timer when you ask it to",
+      "default": false
     }
   }
 }
