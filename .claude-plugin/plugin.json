@@ -1,6 +1,6 @@
 {
   "name": "pomodoro",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A pomodoro timer on the prompt's hint line whose break lands while Claude works, with buttons beside it, a history and a report: /pomodoro start",
   "author": {
     "name": "Barış Demirhan",
@@ -40,21 +40,13 @@
     "focusStart": {
       "type": "string",
       "title": "Focus starts",
-      "description": "After a break: prompt waits for your next prompt, auto starts the round at once",
-      "options": [
-        "prompt",
-        "auto"
-      ],
+      "description": "After a break: prompt (waits for your next prompt) or auto (starts the round at once)",
       "default": "prompt"
     },
     "breakStart": {
       "type": "string",
       "title": "Break starts",
-      "description": "After a focus round: claude waits up to five minutes for Claude to start working, auto starts the break at once",
-      "options": [
-        "claude",
-        "auto"
-      ],
+      "description": "After a focus round: claude (waits up to five minutes for Claude to start working) or auto (starts the break at once)",
       "default": "claude"
     },
     "dailyGoal": {
@@ -67,22 +59,12 @@
       "type": "string",
       "title": "Hint style",
       "description": "How the hint line shows the set: full (2/4), dots (●●○○) or minimal",
-      "options": [
-        "full",
-        "dots",
-        "minimal"
-      ],
       "default": "full"
     },
     "controls": {
       "type": "string",
       "title": "Control row",
-      "description": "Buttons under the hint line where there is a pointer (the fullscreen terminal, the desktop app): always, only while a pomodoro is on, or off",
-      "options": [
-        "always",
-        "running",
-        "off"
-      ],
+      "description": "The timer's row of buttons where there is a pointer (the fullscreen terminal, the desktop app): always, running (only while a pomodoro is on) or off",
       "default": "always"
     },
     "volume": {
