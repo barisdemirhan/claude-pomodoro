@@ -11,6 +11,12 @@ declare module 'claude-code' {
        * reads it, draws again.
        */
       historyVersion: number
+      /**
+       * The switches every session shares, as this one last read them from
+       * the store: the sound off, the row of buttons open, and the pomodoro
+       * closed out of sight by `/pomodoro close`.
+       */
+      switches: { isMuted: boolean; areControlsOpen: boolean; isClosed: boolean }
     }
   }
 }

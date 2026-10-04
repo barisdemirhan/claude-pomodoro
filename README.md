@@ -37,8 +37,9 @@ The same two steps work from inside a session with `/plugin marketplace add bari
 | `/pomodoro report` | Opens a pane with the same, drawn: the last seven days as bars, twelve weeks as a heat map, the hours you focus in, and your top projects and tags |
 | `/pomodoro log [day]` | One day's rounds, one to a line: when, how long, what for, where, and Claude's part. `today` with no word, or `yesterday`, or a date as `2026-10-02` |
 | `/pomodoro export [json\|csv\|ical] [file]` | Every round kept, as CSV with no word. To the clipboard, or to the file you name (`~/focus.ics`) |
-| `/pomodoro sound` | Turns the sounds off or on. `/pomodoro sound on` and `/pomodoro sound off` say which |
-| `/pomodoro controls` | Opens or closes the timer's row of buttons. `/pomodoro controls on` and `/pomodoro controls off` say which |
+| `/pomodoro sound` | Turns the sounds off or on. `/pomodoro sound on` and `/pomodoro sound off` say which. Every open session follows within a second |
+| `/pomodoro controls` | Opens or closes the timer's row of buttons. `/pomodoro controls on` and `/pomodoro controls off` say which. Every open session follows within a second |
+| `/pomodoro close` | Takes it all out of sight and hearing, in every open session within a second: the timer on the hint line and its row of buttons, the report, the toasts and the sounds. Unlike `/pomodoro stop`, the pomodoro runs on. `/pomodoro exit` and `/pomodoro quit` do the same; `/pomodoro open` brings it all back as it was, and so do `/pomodoro start`, `/pomodoro resume` and `/pomodoro controls on` |
 
 A set is four focus rounds of 25 minutes with a 5 minute break after each, and a 15 minute break after the fourth. Once started it runs round after round until you stop it.
 
@@ -132,7 +133,7 @@ Of Claude's work it reads only when a turn starts and ends and how long it ran, 
 
 It asks Claude Code for the name of the repository or folder a session works in, to keep it with the rounds.
 
-It saves these in the plugin's own Claude Code store: the timer (its phase, when it began, how long it runs, and what the rounds are for), your rounds and a count of their changes, what the running round gathered so far in each session, the rounds lately ended, when you last sent a prompt, what `/pomodoro undo` would take back, whether the sound is off, and whether the row of buttons is closed.
+It saves these in the plugin's own Claude Code store: the timer (its phase, when it began, how long it runs, and what the rounds are for), your rounds and a count of their changes, what the running round gathered so far in each session, the rounds lately ended, when you last sent a prompt, what `/pomodoro undo` would take back, whether the sound is off, whether the row of buttons is closed, and whether you closed it all with `/pomodoro close`.
 
 It plays two short sounds from its own `sounds/` folder, through Claude Code's player, and with spoken announcements on, speaks through the system voice.
 

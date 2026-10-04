@@ -1148,3 +1148,117 @@ test('the timer\'s row goes right under the hint line, over the rows another mod
   await run($, 'skip')
   expect(await texts($)).toEqual(['', '🍅 ☕ 5:00', '♪ matrix'])
 })
+
+/** The mode labels the desktop draws beside its hint line now. */
+const modes = async ($: Engine): Promise<string> => {
+  const ui = await $.ui.mount(MODES)
+  const text = (await ui.find({ type: 'Text' }))?.text ?? ''
+  await ui.unmount()
+
+  return text
+}
+
+test('/pomodoro close takes it all out of sight and hearing while the pomodoro runs on, and open brings it back as it was', async ($, on) => {
+  const { clock, store, toasts, clips } = world(on)
+  const closed: string[] = []
+  on('ui.close', (_$, e) => {
+    closed.push(e.id)
+
+    return { value: undefined }
+  })
+  await $.session.start(SESSION)
+  await run($, 'start')
+  await $.turn.start(TURN)
+
+  expect(await run($, 'close')).toBe(
+    'Pomodoro is closed: the timer, its buttons, the report, its toasts and its sounds are away, and a pomodoro on runs on. /pomodoro open, start or resume brings them back.',
+  )
+  expect(closed).toEqual(['pomodoro-report'])
+  expect(await footer($)).toBe('')
+  expect(await buttons($)).toEqual([])
+  expect(await buttons($, 'desktop', false)).toEqual([])
+  expect(await modes($)).toBe('')
+
+  // The round runs out while Claude works and the break begins, unseen and unheard.
+  await clock.advance(25 * MINUTE)
+  expect(await run($, '')).toBe('Pomodoro: break · 5:00 left')
+  expect(toasts).toEqual([])
+  expect(clips).toEqual([])
+
+  // Open, it shows and sounds as it did, the sound and the row as they were.
+  expect(await run($, 'open')).toBe(
+    'Pomodoro is open: the timer, its buttons, its toasts and its sounds are back as they were.',
+  )
+  expect(await footer($)).toBe('☕ 5:00')
+  expect(await modes($)).toBe('☕ 5:00')
+  expect(await buttons($)).toContain('● sound')
+  await clock.advance(5 * MINUTE)
+  expect(toasts).toEqual(["Break's over · focus 2/4 is next"])
+  expect(clips).toEqual(['sounds/focus.wav'])
+
+  // Closing and opening leave the person's own switches as they set them.
+  await run($, 'sound off')
+  await run($, 'controls off')
+  await run($, 'quit')
+  await run($, 'open')
+  expect(store.get('isMuted')).toBe(true)
+  expect(await buttons($)).toEqual([])
+  expect(await footer($)).toBe('☕ break over')
+
+  // Opening the row brings the rest back with it.
+  expect(await run($, 'exit')).toContain('Pomodoro is closed')
+  expect(await run($, 'controls')).toContain('Pomodoro controls are on.')
+  expect(await buttons($)).toContain('○ sound')
+  expect(await run($, 'close now')).toContain('Usage: /pomodoro')
+
+  // Running the pomodoro on brings it all back too, and so does beginning
+  // one; plain /pomodoro only says where it stands while one is on.
+  await run($, 'close')
+  await run($, '')
+  expect(store.get('isClosed')).toBe(true)
+  await run($, 'resume')
+  expect(store.get('isClosed')).toBe(false)
+  expect(await footer($)).not.toBe('')
+  await run($, 'stop')
+  await run($, 'close')
+  expect(await run($, '')).toContain('Pomodoro is on')
+  expect(store.get('isClosed')).toBe(false)
+  expect(await footer($)).not.toBe('')
+})
+
+test('/pomodoro close, open, sound and controls in another session reach this one at its next tick', async ($, on) => {
+  const { clock, store, toasts, clips } = world(on)
+  const closed: string[] = []
+  on('ui.close', (_$, e) => {
+    closed.push(e.id)
+
+    return { value: undefined }
+  })
+  await $.session.start(SESSION)
+  await run($, 'start')
+  await $.turn.start(TURN)
+
+  // The other session writes to the store both read.
+  store.set('isClosed', true)
+  await clock.advance(1000)
+  expect(await footer($)).toBe('')
+  expect(await buttons($)).toEqual([])
+  expect(closed).toEqual(['pomodoro-report'])
+  await clock.advance(25 * MINUTE)
+  expect(toasts).toEqual([])
+  expect(clips).toEqual([])
+
+  store.set('isClosed', false)
+  store.set('isMuted', true)
+  store.set('areControlsOpen', false)
+  await clock.advance(1000)
+  expect(await footer($)).toBe('☕ 4:58')
+  expect(await buttons($)).toEqual([])
+
+  store.set('areControlsOpen', true)
+  await clock.advance(1000)
+  expect(await buttons($)).toContain('○ sound')
+  await clock.advance(5 * MINUTE)
+  expect(toasts).toEqual(["Break's over · focus 2/4 is next"])
+  expect(clips).toEqual([])
+})

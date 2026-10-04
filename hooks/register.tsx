@@ -1,5 +1,11 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register, RenderElement, RenderNode } from 'claude-code'
+import type {
+  EngineInterface,
+  Register,
+  RenderElement,
+  RenderNode,
+  ToastOptions,
+} from 'claude-code'
 
 import {
   currentTextOf,
@@ -28,7 +34,7 @@ import {
 import type { History, Round, RoundStatus } from './history'
 import { entryOfRound } from './openpomodoro'
 import type { OpenPomodoro } from './openpomodoro'
-import { REPORT_OPEN, registerReport } from './report'
+import { REPORT_OPEN, REPORT_PANE, registerReport } from './report'
 import {
   IDLE,
   clockText,
@@ -99,6 +105,8 @@ type Ways = { sound: Sound; outside: Outside }
 type ControlRow = 'always' | 'running' | 'off'
 // One of the timer's buttons: the `/pomodoro` word it says, and its label.
 type Control = { verb: string; label: string }
+// The switches every session shares, each named as the store keeps it.
+type Switches = { isMuted: boolean; areControlsOpen: boolean; isClosed: boolean }
 
 const TIMER = 'timer'
 const HISTORY = 'history'
@@ -107,6 +115,9 @@ const STATS = 'stats'
 const MUTED = 'isMuted'
 // Whether the timer's row of buttons is open: it is until closed.
 const CONTROLS_OPEN = 'areControlsOpen'
+// Whether the person closed the pomodoro out of sight and hearing: the timer,
+// its row, the report, its toasts and its sounds. A pomodoro on runs on.
+const CLOSED = 'isClosed'
 // When the person last did something, in any session.
 const ACTIVE = 'activeAt'
 // Each session's tally is under this, then the session's id.
@@ -137,11 +148,13 @@ const WAITING = ['permission_prompt', 'elicitation_dialog']
 const PERSON = ['composer', 'bridge']
 const CLIPS = { break: 'sounds/break.wav', focus: 'sounds/focus.wav' } as const
 const USAGE =
-  'Usage: /pomodoro [start [what #tag]], pause, resume, skip, finish, stop, extend [minutes], note [what #tag], undo, stats, report, log [today|yesterday|YYYY-MM-DD], export [json|csv|ical] [file], sound [on|off] or controls [on|off].'
+  'Usage: /pomodoro [start [what #tag]], pause, resume, skip, finish, stop, extend [minutes], note [what #tag], undo, stats, report, log [today|yesterday|YYYY-MM-DD], export [json|csv|ical] [file], sound [on|off], controls [on|off], close or open.'
 const TIMER_VERBS = ['', 'start', 'pause', 'resume', 'skip', 'finish', 'stop', 'extend', 'note', 'undo']
 // The verbs that take no words after them.
 const BARE_VERBS = ['', 'pause', 'skip', 'finish', 'stop', 'undo']
 const SWITCH: Readonly<Record<string, boolean>> = { on: true, off: false }
+// Other words for closing it all out of sight.
+const CLOSE_WORDS = ['close', 'exit', 'quit']
 const CONTROL_ROWS: readonly ControlRow[] = ['always', 'running', 'off']
 const NOBODY: Away = { turns: 0, asks: 0 }
 
@@ -151,6 +164,12 @@ const historyVersion = atom(
   0,
 )
 const label = atom({ plugin: 'pomodoro', key: 'label' } as const, '')
+// The shared switches as this session last read them, what it draws and
+// plays by: another session's change reaches it at the next tick.
+const switches = atom(
+  { plugin: 'pomodoro', key: 'switches' } as const,
+  { isMuted: false, areControlsOpen: true, isClosed: false },
+)
 
 const controlRowOf = (options: Readonly<Record<string, unknown>>): ControlRow =>
   CONTROL_ROWS.find((row) => row === options.controls) ?? 'always'
@@ -174,7 +193,9 @@ const ring = async (
   clip: keyof typeof CLIPS,
   words: string,
 ): Promise<void> => {
-  if ((await $.store.get(MUTED)) === true) {
+  const { isMuted, isClosed } = await read($, switches)
+
+  if (isMuted || isClosed) {
     return
   }
 
@@ -183,6 +204,17 @@ const ring = async (
 
   if (sound.isSpoken) {
     await $.audio.speak(words).catch(() => undefined)
+  }
+}
+
+/** Shows a toast, unless the person closed the pomodoro out of sight. */
+const toasted = async (
+  $: EngineInterface,
+  text: string,
+  options?: ToastOptions,
+): Promise<void> => {
+  if (!(await read($, switches)).isClosed) {
+    $.ui.toast(text, options)
   }
 }
 
@@ -220,14 +252,14 @@ const awayText = ({ turns, asks }: Away): string => {
 }
 
 /** Says what Claude did here while the person was away, and starts over. */
-const welcomed = ($: EngineInterface, session: Session): void => {
+const welcomed = async ($: EngineInterface, session: Session): Promise<void> => {
   const text = awayText(session.away)
 
-  if (text !== '') {
-    $.ui.toast(text, { timeoutMs: TOAST_MS })
-  }
-
   session.away = NOBODY
+
+  if (text !== '') {
+    await toasted($, text, { timeoutMs: TOAST_MS })
+  }
 }
 
 const historyOf = async ($: EngineInterface): Promise<History> =>
@@ -458,7 +490,7 @@ const goalMet = async (
   const today = dayTotals(await historyOf($))[dayOf(now)]
 
   if (today?.rounds === plan.dailyGoal) {
-    $.ui.toast(`Daily goal reached · ${plural(plan.dailyGoal, 'round')} 🎯`, {
+    await toasted($, `Daily goal reached · ${plural(plan.dailyGoal, 'round')} 🎯`, {
       timeoutMs: TOAST_MS,
     })
   }
@@ -656,7 +688,7 @@ const synced = async (
       : undefined
 
   if (found !== undefined && (await swapped($, stored, found))) {
-    $.ui.toast('Picked up a pomodoro from ~/.pomodoro')
+    await toasted($, 'Picked up a pomodoro from ~/.pomodoro')
   }
 
   const revision = toCount(await $.store.get(REVISION))
@@ -681,7 +713,7 @@ const synced = async (
     const round = await archived($, session, before, now, 'done')
     await remembered($, before, timer, now, round)
     told($, plan, outside, before, timer, round)
-    $.ui.toast(breakText(before, timer, plan, session.isWorking), {
+    await toasted($, breakText(before, timer, plan, session.isWorking), {
       timeoutMs: TOAST_MS,
     })
     session.away = NOBODY
@@ -689,13 +721,13 @@ const synced = async (
     await goalMet($, plan, round, now)
   } else if (event === 'due') {
     told($, plan, outside, before, timer)
-    $.ui.toast(dueText(timer, plan), { timeoutMs: TOAST_MS })
+    await toasted($, dueText(timer, plan), { timeoutMs: TOAST_MS })
     void ring($, sound, 'focus', 'The break is over.')
   } else if (event === 'focus') {
     await remembered($, before, timer, now)
     told($, plan, outside, before, timer)
-    $.ui.toast(focusText(timer, plan), { timeoutMs: TOAST_MS })
-    welcomed($, session)
+    await toasted($, focusText(timer, plan), { timeoutMs: TOAST_MS })
+    await welcomed($, session)
     void ring($, sound, 'focus', `Focus round ${timer.round + 1}.`)
   } else if (event === 'stale') {
     if (before.phase === 'focus') {
@@ -703,20 +735,20 @@ const synced = async (
     }
 
     told($, plan, outside, before, timer)
-    $.ui.toast('Pomodoro stopped · nobody was here')
+    await toasted($, 'Pomodoro stopped · nobody was here')
   } else if (was !== undefined && timer.beganAt > was.beganAt) {
     // Another session turned the phase; an undo, going back, is no news.
     if (was.phase === 'focus' && timer.phase === 'break') {
-      $.ui.toast(breakText(was, timer, plan, session.isWorking), {
+      await toasted($, breakText(was, timer, plan, session.isWorking), {
         timeoutMs: TOAST_MS,
       })
       session.away = NOBODY
     } else if (was.phase === 'break' && timer.phase === 'focus') {
-      $.ui.toast(focusText(timer, plan), { timeoutMs: TOAST_MS })
-      welcomed($, session)
+      await toasted($, focusText(timer, plan), { timeoutMs: TOAST_MS })
+      await welcomed($, session)
     }
   } else if (was?.phase === 'break' && !was.isDue && timer.isDue) {
-    $.ui.toast(dueText(timer, plan), { timeoutMs: TOAST_MS })
+    await toasted($, dueText(timer, plan), { timeoutMs: TOAST_MS })
   }
 
   session.seen = timer
@@ -760,10 +792,10 @@ const arrived = async (
     await turned($, session, plan, back)
     await remembered($, timer, back, now)
     told($, plan, outside, timer, back)
-    $.ui.toast(`Welcome back · focus ${roundText(back, plan)} is on`, {
+    await toasted($, `Welcome back · focus ${roundText(back, plan)} is on`, {
       timeoutMs: TOAST_MS,
     })
-    welcomed($, session)
+    await welcomed($, session)
     await tallied($, session, back)
   } else if (timer.phase === 'focus' && !isPaused(timer)) {
     await tallied($, session, timer)
@@ -822,20 +854,72 @@ const called = async (
   }
 
   session.away = { ...session.away, [kind]: session.away[kind] + 1 }
-  $.ui.toast(
+  await toasted(
+    $,
     `${what} · ${left > 0 ? `${clockText(left)} of break left` : 'the break is over'}`,
   )
 }
 
+/** The switches as the store keeps them for every session: each unset one as it begins. */
+const switchesOf = async ($: EngineInterface): Promise<Switches> => ({
+  isMuted: (await $.store.get(MUTED)) === true,
+  areControlsOpen: (await $.store.get(CONTROLS_OPEN)) !== false,
+  isClosed: (await $.store.get(CLOSED)) === true,
+})
+
+/**
+ * Keeps a change of the switches for every session, and takes it up here at
+ * once; the other sessions take it up at their next tick. Closed is the timer
+ * and its row away together: a change that opens the row again leaves the
+ * pomodoro closed no longer.
+ */
+const switched = async ($: EngineInterface, change: Partial<Switches>): Promise<void> => {
+  const changed =
+    change.isClosed === undefined && change.areControlsOpen === true
+      ? { ...change, isClosed: false }
+      : change
+
+  for (const [key, value] of Object.entries(changed)) {
+    await $.store.set(key, value)
+  }
+
+  await update($, switches, (now) => ({ ...now, ...changed }))
+}
+
+const areSame = (one: Switches, other: Switches): boolean =>
+  one.isMuted === other.isMuted &&
+  one.areControlsOpen === other.areControlsOpen &&
+  one.isClosed === other.isClosed
+
+/**
+ * Takes up the switches another session changed: the sound, the row of
+ * buttons, and the pomodoro closed, which closes the report here too.
+ */
+const followed = async ($: EngineInterface): Promise<void> => {
+  const held = await read($, switches)
+  const kept = await switchesOf($)
+
+  if (areSame(held, kept)) {
+    return
+  }
+
+  // A switch made here in the meantime stands: the next tick reads it back.
+  const now = await update($, switches, (seen) => (areSame(seen, held) ? kept : seen))
+
+  if (now.isClosed && !held.isClosed) {
+    await $.ui.close({ id: REPORT_PANE }).catch(() => undefined)
+  }
+}
+
 /** `/pomodoro sound [on|off]`: the word's way, or the other way with no word. */
 const soundText = async ($: EngineInterface, word: string): Promise<string> => {
-  const isOn = word === '' ? (await $.store.get(MUTED)) === true : SWITCH[word]
+  const isOn = word === '' ? (await read($, switches)).isMuted : SWITCH[word]
 
   if (isOn === undefined) {
     return USAGE
   }
 
-  await $.store.set(MUTED, !isOn)
+  await switched($, { isMuted: !isOn })
 
   return `Pomodoro sound is ${isOn ? 'on' : 'off'}.`
 }
@@ -930,17 +1014,35 @@ const under = (tree: RenderNode, row: RenderElement): RenderElement => {
   return { ...tree, children: [under(first, row), ...rest] }
 }
 
-/** `/pomodoro controls [on|off]`: the word's way, or the other way with no word. */
+/**
+ * `/pomodoro controls [on|off]`: the word's way, or the other way with no
+ * word. Opened, the row brings the pomodoro back if it was closed.
+ */
 const controlsText = async ($: EngineInterface, word: string): Promise<string> => {
-  const isOn = word === '' ? (await $.store.get(CONTROLS_OPEN)) === false : SWITCH[word]
+  const { areControlsOpen, isClosed } = await read($, switches)
+  const isOn = word === '' ? !areControlsOpen || isClosed : SWITCH[word]
 
   if (isOn === undefined) {
     return USAGE
   }
 
-  await $.store.set(CONTROLS_OPEN, isOn)
+  await switched($, { areControlsOpen: isOn })
 
   return `Pomodoro controls are ${isOn ? 'on' : 'off'}. They show where there is a pointer: the fullscreen terminal and the desktop app.`
+}
+
+/**
+ * `/pomodoro close`: the timer out of sight wherever it shows, its row and
+ * the report with it, and its toasts and sounds kept back, where `controls
+ * off` leaves the timer on the hint line. A pomodoro on runs on, and
+ * `/pomodoro open`, `start` or `resume` brings it all back as it was. The
+ * other sessions follow at their next tick.
+ */
+const closedText = async ($: EngineInterface): Promise<string> => {
+  await switched($, { isClosed: true })
+  await $.ui.close({ id: REPORT_PANE }).catch(() => undefined)
+
+  return 'Pomodoro is closed: the timer, its buttons, the report, its toasts and its sounds are away, and a pomodoro on runs on. /pomodoro open, start or resume brings them back.'
 }
 
 /**
@@ -1179,7 +1281,7 @@ export const register: Register = (on, options) => {
       name: 'pomodoro',
       description: 'A pomodoro timer whose break toast lands while Claude works',
       argumentHint:
-        '[start|pause|resume|skip|finish|stop|extend|note|undo|stats|report|log|export|sound|controls]',
+        '[start|pause|resume|skip|finish|stop|extend|note|undo|stats|report|log|export|sound|controls|close|open]',
     })
     session.id = await $.session.id().catch(() => String(Math.random()).slice(2))
     session.project = await projectOf($)
@@ -1190,9 +1292,13 @@ export const register: Register = (on, options) => {
       }
     }
 
+    await followed($)
     await inTurn(() => synced($, session, plan, ways))
+    // Every tick takes up the switches another session changed, a pomodoro
+    // on or not; the timer itself is read less often while none is on.
     $.clock.every(TICK_MS, () => {
       ticks += 1
+      void followed($)
 
       if (session.seen?.phase !== 'idle' || ticks % IDLE_TICKS === 0) {
         void inTurn(() => synced($, session, plan, ways))
@@ -1219,6 +1325,22 @@ export const register: Register = (on, options) => {
 
     if (verb === 'sound') {
       return { text: rest.length > 1 ? USAGE : await soundText($, word) }
+    }
+
+    if (CLOSE_WORDS.includes(verb)) {
+      return { text: text === '' ? await closedText($) : USAGE }
+    }
+
+    if (verb === 'open') {
+      if (text !== '') {
+        return { text: USAGE }
+      }
+
+      await switched($, { isClosed: false })
+
+      return {
+        text: 'Pomodoro is open: the timer, its buttons, its toasts and its sounds are back as they were.',
+      }
     }
 
     if (verb === 'stats') {
@@ -1251,6 +1373,17 @@ export const register: Register = (on, options) => {
 
     if (!TIMER_VERBS.includes(verb) || (BARE_VERBS.includes(verb) && text !== '')) {
       return { text: USAGE }
+    }
+
+    // A pomodoro the person begins, or runs on, brings back what `/pomodoro
+    // close` took away. Plain `/pomodoro` begins one only when none is on.
+    const isBegun =
+      verb === 'start' ||
+      verb === 'resume' ||
+      (verb === '' && toTimer(await $.store.get(TIMER)).phase === 'idle')
+
+    if (isBegun && (await read($, switches)).isClosed) {
+      await switched($, { isClosed: false })
     }
 
     return {
@@ -1335,12 +1468,17 @@ export const register: Register = (on, options) => {
   // to press with (the terminal's fullscreen layout, the desktop app), the
   // timer moves to a row of its own under the line instead, with buttons
   // beside it that act on it as `/pomodoro` does; the last closes the row,
-  // and the timer goes back to the line.
+  // and the timer goes back to the line. `/pomodoro close` takes it from both.
   on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
     const text = await read($, label)
+    const { isMuted, areControlsOpen, isClosed } = await read($, switches)
     const hasPointer = e.surface !== 'terminal' || e.viewport?.isFullscreen === true
     const isWanted = controlRow === 'always' || (controlRow === 'running' && text !== '')
-    const isOpen = hasPointer && isWanted && (await $.store.get(CONTROLS_OPEN)) !== false
+    const isOpen = hasPointer && isWanted && areControlsOpen
+
+    if (isClosed) {
+      return next(e)
+    }
 
     if (!isOpen) {
       const before = e.props.tail ?? ''
@@ -1354,7 +1492,7 @@ export const register: Register = (on, options) => {
     const line = await next(e)
     const now = await $.clock.now()
     const timer = toTimer(await $.store.get(TIMER))
-    const isHeard = (await $.store.get(MUTED)) !== true
+    const isHeard = !isMuted
     const canUndo = (await undoOf($, now)) !== undefined
     const { Box, Button, Text } = $.ui.resolve(e)
     // What a button did shows on the row itself: a change the label does
@@ -1415,7 +1553,7 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     const text = await read($, label)
 
-    if (text === '' || e.surface === 'terminal') {
+    if (text === '' || e.surface === 'terminal' || (await read($, switches)).isClosed) {
       return next(e)
     }
 

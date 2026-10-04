@@ -1,6 +1,6 @@
 # Privacy
 
-What the Pomodoro mod for Claude Code does with data. Last changed on 3 October 2026.
+What the Pomodoro mod for Claude Code does with data. Last changed on 4 October 2026.
 
 ## Out of the box
 
@@ -13,7 +13,7 @@ In the plugin's own Claude Code store, on your disk, it keeps:
 - The timer: its phase, when it began, how long it runs, and what you said the rounds are for, with their tags.
 - Your rounds: when each began and ended, how long it was focused, whether it was done or stopped, what it was for and its tags, the names of the repositories or folders worked in, how long Claude worked inside it and how many prompts you sent. Rounds older than 400 days are folded into a total per day.
 - What the running round gathered so far in each open session, under a random id that session makes when it starts.
-- When you last sent a prompt, the rounds lately ended, what `/pomodoro undo` would take back, whether the sound is off and whether the row of buttons is closed.
+- When you last sent a prompt, the rounds lately ended, what `/pomodoro undo` would take back, whether the sound is off, whether the row of buttons is closed and whether you closed it all with `/pomodoro close`.
 
 ## What reaches Claude
 
