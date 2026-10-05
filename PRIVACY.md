@@ -1,6 +1,6 @@
 # Privacy
 
-What the Pomodoro mod for Claude Code does with data. Last changed on 4 October 2026.
+What the Pomodoro mod for Claude Code does with data. Last changed on 5 October 2026.
 
 ## Out of the box
 
@@ -31,9 +31,11 @@ Each of these is off until you turn it on in the plugin's settings, or until you
 
 ## Taking your data off
 
-Everything the mod keeps is on your own disk: in the plugin's store, which goes when you remove the plugin's data, and with Open Pomodoro files on, in `~/.pomodoro`, which is yours to keep or delete.
+What the mod keeps on your machine is one JSON file, the plugin's store: `~/.claude/plugins/store/pomodoro_<marketplace>-<id>.json`, which is `pomodoro_claude-mods-cf0e3c48f8c2.json` when installed from `claude-mods`. That is where Claude Code 2.1.288 keeps it; the place is Claude Code's own and may change with it. Deleting the file with no session open takes it all off.
 
-If something here is unclear or wrong, [open an issue](https://github.com/barisdemirhan/claude-pomodoro/issues).
+With Open Pomodoro files on, there is also `~/.pomodoro`, which is yours to keep or delete, and any file `/pomodoro export` wrote where you named it.
+
+If something here is unclear or wrong, [open an issue](https://github.com/barisdemirhan/claude-pomodoro/issues). To report a security problem in private, see [SECURITY.md](SECURITY.md).
 
 ## Changes
 

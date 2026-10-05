@@ -12,13 +12,31 @@ Type `/pomodoro start` and the round counts down at the end of the hint line und
 ## Install
 
 ```sh
-claude plugin marketplace add barisdemirhan/claude-pomodoro
-claude plugin install pomodoro@claude-pomodoro
+claude plugin marketplace add barisdemirhan/claude-mods
+claude plugin install pomodoro@claude-mods
 ```
 
 Restart Claude Code, then run `/pomodoro start`.
 
-The same two steps work from inside a session with `/plugin marketplace add barisdemirhan/claude-pomodoro` and `/plugin install pomodoro@claude-pomodoro`.
+The same two steps work from inside a session with `/plugin marketplace add barisdemirhan/claude-mods` and `/plugin install pomodoro@claude-mods`.
+
+[claude-mods](https://github.com/barisdemirhan/claude-mods) is one marketplace for all of these mods, so its first line is needed once for the lot.
+
+### If you installed from `claude-pomodoro`
+
+Nothing has to change. This repository is still a marketplace of its own, and `pomodoro@claude-pomodoro` goes on getting updates.
+
+Moving to `claude-mods` is a new install as Claude Code sees it, and it starts with an empty store: without your rounds and the running timer. To bring them along, copy the store's file to its new name before you install, with no Claude Code session open:
+
+```sh
+cp -R ~/.claude/plugins/store ~/claude-store-backup
+cp ~/.claude/plugins/store/pomodoro_claude-pomodoro-69a776f141b5.json ~/.claude/plugins/store/pomodoro_claude-mods-cf0e3c48f8c2.json
+claude plugin marketplace add barisdemirhan/claude-mods
+claude plugin install pomodoro@claude-mods
+claude plugin uninstall pomodoro@claude-pomodoro
+```
+
+The two file names are where Claude Code 2.1.288 keeps a mod's store. They are Claude Code's own and may change with it. The first line keeps a copy of every store in `~/claude-store-backup`, to put back if the move goes wrong; delete it once the mod shows what it showed before. Uninstalling leaves the old store's file where it is. Keep one of the two installs, not both: with both on, every hook runs twice.
 
 ## Use
 
@@ -125,23 +143,29 @@ With **Tools for Claude** on, Claude can call two tools: `stats`, which reads wh
 - The terminal or the desktop app: the timer is drawn only there. The terminal has it on the hint line, the desktop app among the mode labels beside it.
 - Sound needs macOS, where Claude Code has a player for it. Elsewhere the timer is silent.
 
-## What it does on your machine
+## Privacy and data handling
 
-The mod registers one slash command, adds one label to the hint line under the prompt, or where there is a pointer a row under it with the label and its buttons, and draws the report pane when you open it. It never changes a prompt, a tool call or a tool's result. It makes no network requests.
+The mod registers one slash command, adds one label to the hint line under the prompt, or where there is a pointer a row under it with the label and its buttons, and draws the report pane when you open it. It never changes a prompt, a tool call or a tool's result.
 
-Of Claude's work it reads only when a turn starts and ends and how long it ran, and when Claude Code notifies you that it waits on a permission or a question. Of your prompts it reads only where each came from, to tell yours from a schedule's or another session's. It reads nothing of a prompt's text, a tool call or an answer.
+**What it reads.** Of Claude's work, only when a turn starts and ends and how long it ran, and when Claude Code notifies you that it waits on a permission or a question. Of your prompts, only where each came from, to tell yours from a schedule's or another session's. It reads nothing of a prompt's text, a tool call or an answer. It asks Claude Code for the name of the repository or folder a session works in, to keep it with the rounds.
 
-It asks Claude Code for the name of the repository or folder a session works in, to keep it with the rounds.
+**What it sends.** Nothing. It makes no network request, and has no server, no account and no analytics.
 
-It saves these in the plugin's own Claude Code store: the timer (its phase, when it began, how long it runs, and what the rounds are for), your rounds and a count of their changes, what the running round gathered so far in each session, the rounds lately ended, when you last sent a prompt, what `/pomodoro undo` would take back, whether the sound is off, whether the row of buttons is closed, and whether you closed it all with `/pomodoro close`.
+**What reaches Claude.** What `/pomodoro` answers is a row of the conversation, as any command's output is, and Claude reads it with the rest: `/pomodoro stats` and `/pomodoro log` show your rounds' labels, tags and project names. With **Tools for Claude** on, what the `stats` tool answers goes into the conversation the same way. It is off until you turn it on.
 
-It plays two short sounds from its own `sounds/` folder, through Claude Code's player, and with spoken announcements on, speaks through the system voice.
+**What it keeps.** These, in the plugin's own Claude Code store, one JSON file under `~/.claude/plugins/store/` on your disk: the timer (its phase, when it began, how long it runs, and what the rounds are for), your rounds and a count of their changes, what the running round gathered so far in each session, the rounds lately ended, when you last sent a prompt, what `/pomodoro undo` would take back, whether the sound is off, whether the row of buttons is closed, and whether you closed it all with `/pomodoro close`.
 
-Out of the box it reads no files, writes none and runs no processes. Only these do, each when you ask for it:
+**Sound.** It plays two short sounds from its own `sounds/` folder, through Claude Code's player, and with spoken announcements on, speaks through the system voice.
+
+**Files and processes.** Out of the box it reads no files, writes none and runs no processes. Only these do, each when you ask for it:
 
 - `/pomodoro export` with a file name writes that file. Without one it copies to the clipboard.
 - **Open Pomodoro files** reads `HOME` to find `~/.pomodoro`, reads and writes `current` and `history` there, and nothing else.
 - **Hook scripts** runs the files in `~/.pomodoro/hooks/` named `start`, `stop` and `break`, if they are there.
+
+[PRIVACY.md](PRIVACY.md) is the same as a privacy policy, with what reaches Claude and how to take your data off.
+
+### Hooks
 
 Its hooks are in `hooks/register.tsx`, with the report pane's drawing in `hooks/report.tsx`:
 
@@ -155,13 +179,11 @@ Its hooks are in `hooks/register.tsx`, with the report pane's drawing in `hooks/
 
 The files under `tests/` run only under `claude plugin test`, and are never loaded in a session.
 
-[PRIVACY.md](PRIVACY.md) says the same as a privacy policy, with what reaches Claude.
-
 ## Develop
 
 ```sh
 git clone https://github.com/barisdemirhan/claude-pomodoro
-claude plugin validate claude-pomodoro/.claude-plugin/plugin.json
+claude plugin validate claude-pomodoro
 claude plugin test claude-pomodoro
 claude --plugin-dir claude-pomodoro
 ```
@@ -175,6 +197,14 @@ claude --plugin-dir claude-pomodoro
 - `hooks/openpomodoro.ts` and `hooks/automation.ts`: the Open Pomodoro format, and the paths, variables and file contents the two Open Pomodoro settings need.
 - `hooks/tools.ts`: the tools Claude reads, as it reads them.
 - `hooks/values.ts`: readers for what the store hands back.
+
+## More mods
+
+From the same marketplace, [claude-mods](https://github.com/barisdemirhan/claude-mods):
+
+- [ambient](https://github.com/barisdemirhan/claude-ambient): a living band above the prompt, with sound, fed by Claude's work.
+- [dino](https://github.com/barisdemirhan/claude-dino): a T-Rex runner in a pane, with Claude's tool calls as the obstacles.
+- [tycoon](https://github.com/barisdemirhan/claude-tycoon): Token Tycoon, an idle game where Claude's tool calls earn the money.
 
 ## License
 
